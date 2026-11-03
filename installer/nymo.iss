@@ -1,5 +1,6 @@
 ; nymo-setup.exe -- Installer fuer das Windows-Paket (Inno Setup 6). Baut GitHub Actions (installer.yml) aus dem
 ; nymo-windows.zip des Releases; von Hand: ISCC /DVersion=1.1 /DQuelle=<entpacktes Zip> /DZiel=<Ausgabe> nymo.iss
+; (Quelle und Ziel absolut angeben -- relative Pfade loest Inno Setup von diesem Skript aus auf)
 ;
 ; Installiert fuer den angemeldeten Benutzer nach %LOCALAPPDATA%\Programs\nymo (kurzer Pfad, nicht in OneDrive,
 ; keine Administrator-Rechte), legt die Verknuepfungen „nymo“ an (Startmenue, Schreibtisch) und schreibt
