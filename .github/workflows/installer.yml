@@ -1,0 +1,73 @@
+# Baut nymo-setup.exe aus dem nymo-windows.zip eines Releases -- auf einem Windows-Runner, mit Inno Setup 6
+# (vorinstalliert). Laeuft von selbst, sobald ein Release veroeffentlicht wird (gh release create ...), oder von
+# Hand: gh workflow run installer.yml -f tag=v1.1. Vorher prueft installer/pruefe.py das Paket mit dem
+# mitgelieferten Python (Pakete, Poppler, KI-Erkennung, Server). Haengt Installer und SHA256SUMS.txt ans Release.
+#
+# Quelle dieser Datei: KI-Kanzlei/nymo/app-win/installer/installer.yml (app-win/veroeffentlichen.sh gleicht ab).
+name: Installer
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release-Tag, z. B. v1.1"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag und Version
+        run: |
+          $tag = if ('${{ github.event_name }}' -eq 'release') { '${{ github.event.release.tag_name }}' } else { '${{ inputs.tag }}' }
+          if (-not $tag) { throw "Kein Tag" }
+          "TAG=$tag" >> $env:GITHUB_ENV
+          "VERSION=$($tag.TrimStart('v'))" >> $env:GITHUB_ENV
+          "Release $tag"
+
+      - name: Zip aus dem Release laden
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download $env:TAG --pattern nymo-windows.zip --dir paket --repo ${{ github.repository }}
+
+      - name: Entpacken
+        run: |
+          7z x -y -opaket paket\nymo-windows.zip | Select-String -Pattern "Everything is Ok|Error|Files:"
+          Remove-Item paket\nymo-windows.zip
+          Get-ChildItem paket
+
+      - name: Paket pruefen (mitgeliefertes Python)
+        run: paket\nymo\python\python.exe -I installer\pruefe.py paket\nymo
+
+      - name: Installer bauen (Inno Setup)
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc "/DVersion=$env:VERSION" "/DQuelle=paket" "/DZiel=ausgabe" installer\nymo.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC: $LASTEXITCODE" }
+          Get-Item ausgabe\nymo-setup.exe | Select-Object Name, Length
+
+      - name: Pruefsummen (SHA-256)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download $env:TAG --pattern nymo-windows.zip --dir ausgabe --repo ${{ github.repository }}
+          $zeilen = foreach ($f in @("ausgabe\nymo-setup.exe", "ausgabe\nymo-windows.zip")) {
+            "$((Get-FileHash $f -Algorithm SHA256).Hash.ToLower())  $(Split-Path $f -Leaf)"
+          }
+          ($zeilen -join "`n") + "`n" | Set-Content -NoNewline -Encoding ascii ausgabe\SHA256SUMS.txt
+          Get-Content ausgabe\SHA256SUMS.txt
+          Remove-Item ausgabe\nymo-windows.zip
+
+      - name: Ans Release haengen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload $env:TAG ausgabe\nymo-setup.exe ausgabe\SHA256SUMS.txt --clobber --repo ${{ github.repository }}
