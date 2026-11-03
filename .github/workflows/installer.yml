@@ -51,7 +51,8 @@ jobs:
         run: |
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
-          & $iscc "/DVersion=$env:VERSION" "/DQuelle=paket" "/DZiel=ausgabe" installer\nymo.iss
+          # Pfade absolut: Inno Setup loest relative Pfade vom Skript (installer\) aus auf, nicht vom Arbeitsordner
+          & $iscc "/DVersion=$env:VERSION" "/DQuelle=$PWD\paket" "/DZiel=$PWD\ausgabe" installer\nymo.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC: $LASTEXITCODE" }
           Get-Item ausgabe\nymo-setup.exe | Select-Object Name, Length
 
