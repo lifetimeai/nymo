@@ -44,6 +44,18 @@ jobs:
           Remove-Item paket\nymo-windows.zip
           Get-ChildItem paket
 
+      # Was das Vorkompilieren im Installer (nymo.iss, [Run]) bringt: dieselben Importe wie der KI-Dienst und die OCR,
+      # einmal ohne .pyc (wie bisher beim ersten Start) und einmal danach. Nur Messung, scheitert nie.
+      - name: Startzeit messen (ohne und mit Bytecode)
+        continue-on-error: true
+        run: |
+          $py = "paket\nymo\python\python.exe"
+          $code = "import sys; sys.path.insert(0, r'paket\nymo\ki\Lib\site-packages'); import torch, gliner, rapidocr, onnxruntime, pypdfium2"
+          $kalt = Measure-Command { & $py -I -c $code }
+          $warm = Measure-Command { & $py -I -c $code }
+          "Importe ohne .pyc: $([int]$kalt.TotalSeconds) s, mit .pyc: $([int]$warm.TotalSeconds) s"
+          Get-ChildItem paket\nymo -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
+
       - name: Paket pruefen (mitgeliefertes Python)
         run: paket\nymo\python\python.exe -I installer\pruefe.py paket\nymo
 
