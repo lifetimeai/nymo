@@ -21,9 +21,10 @@ PY = N / "python" / "python.exe"
 fehler = []
 
 
-def ok(was: str, gut: bool, mehr: str = ""):
-    print(f"[{'OK  ' if gut else 'FEHL'}] {was}{(' -- ' + mehr) if mehr else ''}", flush=True)
-    if not gut:
+def ok(was: str, gut: bool, mehr: str = "", pflicht: bool = True):
+    """pflicht=False: nur Hinweis (WARN), haelt den Installer nicht auf"""
+    print(f"[{'OK  ' if gut else 'FEHL' if pflicht else 'WARN'}] {was}{(' -- ' + mehr) if mehr else ''}", flush=True)
+    if not gut and pflicht:
         fehler.append(was)
 
 
@@ -35,6 +36,33 @@ def lauf(cmd, timeout=300, **kw):
 print(f"Paket: {N}  (Python {sys.version.split()[0]}, {sys.executable})")
 ok("mitgeliefertes Python", PY.is_file() and (N / "python" / "pythonw.exe").is_file())
 ok("Startdateien", all((N / f).is_file() for f in ("nymo.py", "nymo.pyw", "nymo starten.bat", "oberflaeche.html")))
+
+# Windows-App (app-win/baue.sh): Fenster und Schild gebaut; das Schild startet, meldet sich ("bereit", alle 100 ms
+# "lebt") und endet, sobald seine Leitung (stdin) zugeht -- so wie nymo.exe es startet und bewacht (wache.cs).
+# Der Lauf des Schilds ist vorerst nur Hinweis (WARN): ob der Runner eine Oberflaeche hat, ist nicht sicher.
+FENSTER = N / "app-win" / "fenster"
+ok("Windows-App gebaut (nymo.exe, nymo-schild.exe)", (FENSTER / "nymo.exe").is_file() and (FENSTER / "nymo-schild.exe").is_file())
+if (FENSTER / "nymo-schild.exe").is_file():
+    import threading
+    zeilen = []
+    try:
+        schild = subprocess.Popen([str(FENSTER / "nymo-schild.exe"), "--nymo", "0"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                  stderr=subprocess.DEVNULL, cwd=str(FENSTER))
+        threading.Thread(target=lambda: [zeilen.append(z.decode("utf-8", "replace")) for z in schild.stdout], daemon=True).start()
+        bis = time.time() + 30
+        while time.time() < bis and sum('"lebt"' in z for z in zeilen) < 5:
+            time.sleep(0.2)
+        ok("Schild startet und meldet sich", any('"bereit"' in z for z in zeilen) and sum('"lebt"' in z for z in zeilen) >= 5,
+           f"{len(zeilen)} Zeilen", pflicht=False)
+        schild.stdin.close()
+        try:
+            schild.wait(10)
+            ok("Schild endet mit seiner Leitung", True, pflicht=False)
+        except subprocess.TimeoutExpired:
+            schild.kill()
+            ok("Schild endet mit seiner Leitung", False, "lief nach 10 s noch", pflicht=False)
+    except OSError as ex:
+        ok("Schild startet und meldet sich", False, str(ex), pflicht=False)
 
 # OCR-Pakete im mitgelieferten Python
 code, out = lauf([str(PY), "-I", "-c", "import rapidocr, onnxruntime, pypdfium2, docx; print('ok')"])
