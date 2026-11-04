@@ -83,6 +83,12 @@ Name: "{userprograms}\nymo"; Filename: "{app}\python\pythonw.exe"; Parameters: "
 Name: "{userdesktop}\nymo"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\nymo.pyw"""; WorkingDir: "{app}"; IconFilename: "{app}\app-win\nymo.ico"; Comment: "nymo – Akten schwärzen, bevor Claude sie sieht"; Tasks: desktopicon
 
 [Run]
+; Bytecode vorab (BJ, 03.11.2026, Tempo Windows): Das Paket kommt ohne .pyc (paket.sh baut am Mac, andere
+; Python-Version). Ohne diesen Schritt uebersetzt der erste Start Tausende Dateien von PyTorch, transformers und
+; RapidOCR, und Defender prueft jede neu geschriebene Datei -- das kostete den ersten Start bis zu zwei Minuten.
+; Hier zahlt das Setup das einmal, auf allen Kernen (-j 0). Einzelne Dateien, die Python 3.13 nicht uebersetzen kann
+; (Vorlagen, Tests in Paketen), melden einen Fehler und werden uebersprungen; das Setup laeuft weiter.
+Filename: "{app}\python\python.exe"; Parameters: "-I -m compileall -q -j 0 ""{app}"""; WorkingDir: "{app}"; StatusMsg: "Bereite nymo vor (einmalig, bis zu zwei Minuten) …"; Flags: runhidden waituntilterminated
 Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\nymo.pyw"""; WorkingDir: "{app}"; Description: "nymo jetzt starten"; Flags: postinstall nowait skipifsilent
 
 [UninstallDelete]
