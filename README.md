@@ -14,7 +14,7 @@ Der Installer bringt alles mit: Python, Poppler, die Texterkennung für Scans (R
 
 **Prüfsummen (SHA-256):** [SHA256SUMS.txt](https://github.com/lifetimeai/nymo/releases/latest/download/SHA256SUMS.txt) zu jedem Release. Prüfen in PowerShell: `Get-FileHash nymo-setup.exe`.
 
-**Updates:** nymo fragt einmal die Woche hier nach einer neueren Version (nur die Versionsnummer, keine Akten) und zeigt sie unten links im Fenster. Die neue Version einfach über die alte installieren, Akten und Einstellungen bleiben. Abschalten: `"updates": false` in `nymo.json` neben `nymo.py`.
+**Updates:** nymo fragt einmal am Tag beim Start hier nach einer neueren Version (nur die Versionsnummer, keine Akten) und zeigt sie unten links im Fenster. Die neue Version einfach über die alte installieren, Akten und Einstellungen bleiben. Abschalten: `"updates": false` in `nymo.json` neben `nymo.py`.
 
 Anleitung und Hintergrund: die `README.md` im Ordner `nymo`. Mehr unter [aibene.de](https://aibene.de).
 
