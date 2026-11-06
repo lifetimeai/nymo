@@ -68,17 +68,27 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "ISCC: $LASTEXITCODE" }
           Get-Item ausgabe\nymo-setup.exe | Select-Object Name, Length
 
+      # Signieren (Windows, noch offen: Azure oder Certum) gehoert VOR diesen Schritt -- in den Installer-Bau oben
+      # (SignTool in nymo.iss) bzw. in app-win/paket.sh fuer das Zip: die Pruefsummen muessen ueber die signierten Dateien laufen.
       - name: Pruefsummen (SHA-256)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release download $env:TAG --pattern nymo-windows.zip --dir ausgabe --repo ${{ github.repository }}
-          $zeilen = foreach ($f in @("ausgabe\nymo-setup.exe", "ausgabe\nymo-windows.zip")) {
+          # Mac-Paket (seit v1.3 im selben Release, bash veroeffentlichen.sh): nur, wenn es am Release haengt
+          $mac = gh release view $env:TAG --json assets --jq '.assets[].name' --repo ${{ github.repository }} | Select-String -SimpleMatch -Quiet "nymo-mac.zip"
+          $dateien = @("ausgabe\nymo-setup.exe", "ausgabe\nymo-windows.zip")
+          if ($mac) {
+            gh release download $env:TAG --pattern nymo-mac.zip --dir ausgabe --repo ${{ github.repository }}
+            $dateien += "ausgabe\nymo-mac.zip"
+          }
+          $zeilen = foreach ($f in $dateien) {
             "$((Get-FileHash $f -Algorithm SHA256).Hash.ToLower())  $(Split-Path $f -Leaf)"
           }
           ($zeilen -join "`n") + "`n" | Set-Content -NoNewline -Encoding ascii ausgabe\SHA256SUMS.txt
           Get-Content ausgabe\SHA256SUMS.txt
           Remove-Item ausgabe\nymo-windows.zip
+          if ($mac) { Remove-Item ausgabe\nymo-mac.zip }
 
       - name: Ans Release haengen
         env:
