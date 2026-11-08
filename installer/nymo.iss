@@ -91,6 +91,10 @@ Name: "{userdesktop}\nymo"; Filename: "{app}\python\pythonw.exe"; Parameters: ""
 Filename: "{app}\python\python.exe"; Parameters: "-I -m compileall -q -j 0 ""{app}"""; WorkingDir: "{app}"; StatusMsg: "Bereite nymo vor (einmalig, bis zu zwei Minuten) …"; Flags: runhidden waituntilterminated
 Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\nymo.pyw"""; WorkingDir: "{app}"; Description: "nymo jetzt starten"; Flags: postinstall nowait skipifsilent
 
+[Registry]
+; „Beim Anmelden starten“ (Menue im Infobereich, menue.cs) schreibt diesen Wert selbst; beim Deinstallieren kommt er weg
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "nymo"; Flags: uninsdeletevalue dontcreatekey
+
 [UninstallDelete]
 ; Was nymo selbst im Programmordner anlegt (Bytecode, Protokoll des KI-Dienstes); nymo.json bleibt absichtlich
 Type: filesandordirs; Name: "{app}\python"
