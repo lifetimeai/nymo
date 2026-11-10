@@ -72,6 +72,20 @@ ok("OCR-Pakete (rapidocr, onnxruntime, pypdfium2, python-docx)", code == 0 and "
 code, out = lauf([str(N / "poppler" / "Library" / "bin" / "pdftotext.exe"), "-v"], 60)
 ok("Poppler pdftotext", code == 0 and "pdftotext" in out, out.strip()[:120])
 
+# Tesseract (mitgeliefert seit 10.11.2026, am Mac nur zusammenkopiert -- hier startet es zum ersten Mal)
+TESS = N / "tesseract"
+tess_env = dict(os.environ, TESSDATA_PREFIX=str(TESS / "tessdata"))
+try:
+    code, out = lauf([str(TESS / "tesseract.exe"), "--version"], 60, env=tess_env)
+except OSError as ex:
+    code, out = 1, str(ex)
+ok("Tesseract startet", code == 0 and "tesseract" in out.lower(), out.strip()[:120])
+try:
+    code, out = lauf([str(TESS / "tesseract.exe"), "--list-langs"], 60, env=tess_env)
+except OSError as ex:
+    code, out = 1, str(ex)
+ok("Tesseract mit Deutsch", code == 0 and "deu" in out.split(), " ".join(out.split())[:120])
+
 # nymo-Module und KI-Erkennung (laeuft in diesem Python, wie nymo selbst)
 sys.path.insert(0, str(N))
 os.chdir(N)
@@ -81,6 +95,40 @@ try:
     ok("werkzeuge.eingebettet()", werkzeuge.eingebettet())
     werkzeuge.pfade_ergaenzen()
     ok("Poppler im Suchpfad", bool(shutil.which("pdftoppm") and shutil.which("pdftotext")), shutil.which("pdftoppm") or "")
+    ok("Tesseract im Suchpfad (das mitgelieferte)", Path(shutil.which("tesseract") or "").parent == TESS, shutil.which("tesseract") or "")
+    # Mischweg an einer Probezeile: Tesseract liest, RapidOCR liest die Zeile nach. Vorerst nur Hinweis (WARN): der
+    # Lauf ist neu, ein Fehler hier soll den Installer nicht aufhalten -- nymo faellt dann auf RapidOCR allein zurueck.
+    try:
+        import tempfile
+        from PIL import Image, ImageDraw, ImageFont
+        ocr = nymo.ocr_prep()
+        probe = Image.new("L", (1800, 260), 255)
+        schrift = next((ImageFont.truetype(f, 54) for f in ("C:/Windows/Fonts/times.ttf", "C:/Windows/Fonts/arial.ttf")
+                        if Path(f).exists()), None) or ImageFont.load_default(54)
+        ImageDraw.Draw(probe).text((60, 90), "Frau Anna Lindqvist, Marienstraße 4, 21335 Lüneburg", font=schrift, fill=0)
+        with tempfile.TemporaryDirectory() as tmp:
+            png = Path(tmp) / "probe.png"
+            probe.save(png)
+            t0 = time.time()
+            text, konf, zeilen = ocr.tesseract_seite(png, "deu", zeilen=True)
+            d1 = time.time() - t0
+        # "Lindqvist" liest Tesseract am Mac als "Lindgvist" (Sicherheit 93) -- genau das soll das Nachlesen richten
+        ok("Tesseract liest die Probezeile", "Marienstraße" in text and "Lüneburg" in text, f"{d1:.1f} s, Sicherheit {konf:.0f}: {text.strip()[:80]}",
+           pflicht=False)
+        t0 = time.time()
+        neu, stand = ocr.zeilen_nachlesen(probe, text, zeilen, lambda z: True)
+        ok("RapidOCR liest die Zeile nach (Mischweg)", stand["nachgelesen"] >= 1 and "Lindqvist" in neu,
+           f"{time.time() - t0:.1f} s, {stand}: {neu.strip()[:80]}", pflicht=False)
+    except Exception as ex:  # noqa: BLE001
+        ok("Mischweg an der Probezeile", False, f"{type(ex).__name__}: {ex}", pflicht=False)
+    # Pflicht ist nur, dass RapidOCRs Lesemodell fuer einzelne Zeilen ueberhaupt antwortet (ocr.rapid_zeilen nutzt
+    # Innereien von RapidOCR): sonst liest nymo jede Seite doppelt (Tesseract, dann RapidOCR ganz) -- langsamer als vorher.
+    try:
+        import numpy
+        gelesen = nymo.ocr_prep().rapid_zeilen([numpy.full((48, 320, 3), 255, dtype=numpy.uint8)])
+        ok("RapidOCR-Lesemodell fuer Zeilen", len(gelesen) == 1, str(gelesen)[:80])
+    except Exception as ex:  # noqa: BLE001
+        ok("RapidOCR-Lesemodell fuer Zeilen", False, f"{type(ex).__name__}: {ex}")
     ok("KI-Erkennung mitgeliefert", ki_erkennung.mitgeliefert())
     ok("KI-Erkennung eingerichtet()", ki_erkennung.eingerichtet(), json.dumps(ki_erkennung.bereit_info())[:200])
     t0 = time.time()
