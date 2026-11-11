@@ -75,12 +75,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release download $env:TAG --pattern nymo-windows.zip --dir ausgabe --repo ${{ github.repository }}
-          # Mac-Paket (seit v1.3 im selben Release, bash veroeffentlichen.sh): nur, wenn es am Release haengt
-          $mac = gh release view $env:TAG --json assets --jq '.assets[].name' --repo ${{ github.repository }} | Select-String -SimpleMatch -Quiet "nymo-mac.zip"
+          # Mac-Paket (seit v1.3) und kleines Update (seit v1.10, nymo-update.zip): nur, wenn sie am Release haengen
+          $namen = gh release view $env:TAG --json assets --jq '.assets[].name' --repo ${{ github.repository }}
           $dateien = @("ausgabe\nymo-setup.exe", "ausgabe\nymo-windows.zip")
-          if ($mac) {
-            gh release download $env:TAG --pattern nymo-mac.zip --dir ausgabe --repo ${{ github.repository }}
-            $dateien += "ausgabe\nymo-mac.zip"
+          $dazu = @()
+          foreach ($n in @("nymo-mac.zip", "nymo-update.zip")) {
+            if ($namen -contains $n) {
+              gh release download $env:TAG --pattern $n --dir ausgabe --repo ${{ github.repository }}
+              $dateien += "ausgabe\$n"
+              $dazu += "ausgabe\$n"
+            }
           }
           $zeilen = foreach ($f in $dateien) {
             "$((Get-FileHash $f -Algorithm SHA256).Hash.ToLower())  $(Split-Path $f -Leaf)"
@@ -88,7 +92,7 @@ jobs:
           ($zeilen -join "`n") + "`n" | Set-Content -NoNewline -Encoding ascii ausgabe\SHA256SUMS.txt
           Get-Content ausgabe\SHA256SUMS.txt
           Remove-Item ausgabe\nymo-windows.zip
-          if ($mac) { Remove-Item ausgabe\nymo-mac.zip }
+          foreach ($f in $dazu) { Remove-Item $f }
 
       - name: Ans Release haengen
         env:
