@@ -20,6 +20,9 @@ permissions:
 
 jobs:
   installer:
+    # Code-Releases (seit 1.12, nur nymo-update.zip/.json) haben kein Windows-Paket: dann nicht starten -- sonst schlug der
+    # Lauf nach 16 s fehl und GitHub schickte je Release eine Mail (BJ, 11.11.2026)
+    if: github.event_name != 'release' || contains(join(github.event.release.assets.*.name, ','), 'nymo-windows.zip')
     runs-on: windows-latest
     timeout-minutes: 90
     steps:
